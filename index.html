@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>法人税・消費税シミュレーター</title>
+<style>
+body{
+font-family:sans-serif;
+max-width:700px;
+margin:auto;
+padding:20px;
+}
+.slider{
+width:400px;
+}
+.result{
+background:#f5f5f5;
+padding:15px;
+margin-top:20px;
+}
+</style>
+</head>
+<body>
+<h2>法人税・消費税シミュレーター</h2>
+<div style="margin-bottom:15px;">
+売上・利益率を入力すると、法人税と消費税の概算を確認できます。
+</div>
+売上（円）<br>
+<input type="text" id="sales"><br><br>
+利益率  
+<span id="profitRateLabel">20%</span>  
+（利益 <span id="profitAmount">0円</span>）<br>
+<input type="range" min="0" max="80" value="20" id="profitRate" class="slider">
+<br><br>
+経費率  
+<span id="expenseRateLabel">80%</span>  
+（経費 <span id="expenseAmount">0円</span>）<br>
+<input type="range" min="0" max="100" value="80" id="expenseRate" class="slider">
+<br><br>
+繰越欠損金<br>
+<input type="text" id="lossCarry"><br><br>
+法人税等 中間納付<br>
+<input type="text" id="corpPrepaid"><br><br>
+消費税 中間納付<br>
+<input type="text" id="vatPrepaid"><br><br>
+簡易課税
+<select id="simpleTax">
+<option value="yes">はい</option>
+<option value="no">いいえ</option>
+</select>
+<br><br>
+みなし仕入率
+<select id="deemedRate">
+<option value="0.9">第一種（卸売業）90%</option>
+<option value="0.8">第二種（小売業）80%</option>
+<option value="0.7">第三種（製造業等）70%</option>
+<option value="0.6">第四種（その他）60%</option>
+<option value="0.5" selected>第五種（サービス業等）50%</option>
+</select>
+<br><br>
+2割特例（2026年9月まで）
+<input type="checkbox" id="twoTenths">
+<div class="result">
+<h3>計算結果</h3>
+<div id="result"></div>
+</div>
+<script>
+const profitSlider = document.getElementById("profitRate")
+const expenseSlider = document.getElementById("expenseRate")
+const salesInput = document.getElementById("sales")
+const lossInput = document.getElementById("lossCarry")
+const corpPrepaidInput = document.getElementById("corpPrepaid")
+const vatPrepaidInput = document.getElementById("vatPrepaid")
+profitSlider.addEventListener("input",()=>{
+expenseSlider.value = 100 - profitSlider.value
+calculate()
+})
+expenseSlider.addEventListener("input",()=>{
+profitSlider.value = 100 - expenseSlider.value
+calculate()
+})
+function formatNumberInput(input){
+let value = input.value.replace(/,/g,"")
+if(value === "") return
+if(!isNaN(value)){
+input.value = Number(value).toLocaleString()
+}
+}
+[salesInput,lossInput,corpPrepaidInput,vatPrepaidInput].forEach(input=>{
+input.addEventListener("input",()=>{
+formatNumberInput(input)
+calculate()
+})
+})
+document.querySelectorAll("select,input[type=checkbox]").forEach(el=>{
+el.addEventListener("input",calculate)
+})
+function calculate(){
+let sales =
+parseFloat(salesInput.value.replace(/,/g,"")) || 0
+let lossCarry =
+parseFloat(lossInput.value.replace(/,/g,"")) || 0
+let corpPrepaid =
+parseFloat(corpPrepaidInput.value.replace(/,/g,"")) || 0
+let vatPrepaid =
+parseFloat(vatPrepaidInput.value.replace(/,/g,"")) || 0
+let profitRate = parseFloat(profitSlider.value)
+let expenseRate = parseFloat(expenseSlider.value)
+let profit = sales * profitRate / 100
+let expenses = sales * expenseRate / 100
+document.getElementById("profitRateLabel").innerText = profitRate + "%"
+document.getElementById("expenseRateLabel").innerText = expenseRate + "%"
+document.getElementById("profitAmount").innerText =
+Math.round(profit).toLocaleString()+"円"
+document.getElementById("expenseAmount").innerText =
+Math.round(expenses).toLocaleString()+"円"
+let simpleTax =
+document.getElementById("simpleTax").value
+let deemedRate =
+parseFloat(document.getElementById("deemedRate").value)
+let twoTenths =
+document.getElementById("twoTenths").checked
+let taxableIncome = Math.max(profit - lossCarry,0)
+let corporateTax = 0
+if(taxableIncome <= 8000000){
+corporateTax = taxableIncome * 0.15
+}else{
+corporateTax =
+8000000 * 0.15 +
+(taxableIncome - 8000000) * 0.232
+}
+let localCorporateTax = corporateTax * 0.103
+let enterpriseTax = taxableIncome * 0.035
+let specialEnterpriseTax = enterpriseTax * 0.37
+let inhabitantFlat = 70000
+let inhabitantRate = corporateTax * 0.07
+let totalCorporateTax =
+corporateTax +
+localCorporateTax +
+enterpriseTax +
+specialEnterpriseTax +
+inhabitantRate +
+inhabitantFlat
+let vat = 0
+let vatMessage = ""
+if(twoTenths){
+vat = (sales / 1.1) * 0.1 * 0.2
+}else{
+if(simpleTax==="yes"){
+vat = (sales/1.1)*0.1*(1-deemedRate)
+}else{
+vatMessage = "計算対象外（税理士にお問い合わせください）"
+}
+}
+let totalTax = totalCorporateTax + vat
+let remainingCorpTax =
+totalCorporateTax - corpPrepaid
+let remainingVat =
+vat - vatPrepaid
+let finalPayment =
+remainingCorpTax + remainingVat
+function yen(x){
+return Math.round(x).toLocaleString()+"円"
+}
+document.getElementById("result").innerHTML =
+`
+利益　${yen(profit)}<br>
+課税所得　${yen(taxableIncome)}<br>
+<hr>
+法人税　${yen(corporateTax)}<br>
+地方法人税　${yen(localCorporateTax)}<br>
+事業税　${yen(enterpriseTax)}<br>
+特別法人事業税　${yen(specialEnterpriseTax)}<br>
+住民税（法人税割）　${yen(inhabitantRate)}<br>
+住民税（均等割）　${yen(inhabitantFlat)}<br>
+<hr>
+法人税等合計  
+<b>${yen(totalCorporateTax)}</b><br>
+消費税  
+<b>${vatMessage ? vatMessage : yen(vat)}</b><br>
+<hr>
+税金合計  
+<b>${yen(totalTax)}</b><br>
+<hr>
+法人税等 中間納付  
+${yen(corpPrepaid)}<br>
+消費税 中間納付  
+${yen(vatPrepaid)}<br>
+<hr>
+法人税等 期末納付  
+<b>${yen(remainingCorpTax)}</b><br>
+消費税 期末納付  
+<b>${vatMessage ? vatMessage : yen(remainingVat)}</b><br>
+<hr>
+合計納付額  
+<b>${yen(finalPayment)}</b>
+`
+}
+</script>
+</body>
+</html>
