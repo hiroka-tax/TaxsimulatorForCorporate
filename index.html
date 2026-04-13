@@ -136,13 +136,16 @@ let enterpriseTax = taxableIncome * 0.035
 let specialEnterpriseTax = enterpriseTax * 0.37
 let inhabitantFlat = 70000
 let inhabitantRate = corporateTax * 0.07
+let defenseTaxBase = Math.max(corporateTax - 5000000, 0)
+let defenseTax = defenseTaxBase * 0.04
 let totalCorporateTax =
 corporateTax +
 localCorporateTax +
 enterpriseTax +
 specialEnterpriseTax +
 inhabitantRate +
-inhabitantFlat
+inhabitantFlat +
+defenseTax
 let vat = 0
 let vatMessage = ""
 if(twoTenths){
@@ -175,6 +178,7 @@ document.getElementById("result").innerHTML =
 特別法人事業税　${yen(specialEnterpriseTax)}<br>
 住民税（法人税割）　${yen(inhabitantRate)}<br>
 住民税（均等割）　${yen(inhabitantFlat)}<br>
+防衛特別法人税　${yen(defenseTax)}<br>
 <hr>
 法人税等合計  
 <b>${yen(totalCorporateTax)}</b><br>
