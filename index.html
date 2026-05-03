@@ -42,6 +42,10 @@ font-size:0.95em;
 利益　<span id="profitAmount">—</span><br><br>
 繰越欠損金<br>
 <input type="text" id="lossCarry"><br><br>
+別表四 加算（円）<br>
+<input type="text" id="adjustAdd"><br><br>
+別表四 減算（円）<small style="color:#666;">　例：事業税の損金算入（前期確定額）</small><br>
+<input type="text" id="adjustSub"><br><br>
 法人税等 中間納付<br>
 <input type="text" id="corpPrepaid"><br><br>
 消費税 中間納付<br>
@@ -80,6 +84,8 @@ const lossInput = document.getElementById("lossCarry")
 const corpPrepaidInput = document.getElementById("corpPrepaid")
 const vatPrepaidInput = document.getElementById("vatPrepaid")
 const taxableExpenseInput = document.getElementById("taxableExpense")
+const adjustAddInput = document.getElementById("adjustAdd")
+const adjustSubInput = document.getElementById("adjustSub")
 function updateVatInputVisibility(){
 const isSimple = document.getElementById("simpleTax").value === "yes"
 const isTwoTenths = document.getElementById("twoTenths").checked
@@ -95,7 +101,7 @@ if(!isNaN(value)){
 input.value = Number(value).toLocaleString()
 }
 }
-[salesInput,expenseInputEl,lossInput,corpPrepaidInput,vatPrepaidInput,taxableExpenseInput].forEach(input=>{
+[salesInput,expenseInputEl,lossInput,adjustAddInput,adjustSubInput,corpPrepaidInput,vatPrepaidInput,taxableExpenseInput].forEach(input=>{
 input.addEventListener("input",()=>{
 formatNumberInput(input)
 calculate()
@@ -111,6 +117,10 @@ let expenses =
 parseFloat(expenseInputEl.value.replace(/,/g,"")) || 0
 let lossCarry =
 parseFloat(lossInput.value.replace(/,/g,"")) || 0
+let adjustAdd =
+parseFloat(adjustAddInput.value.replace(/,/g,"")) || 0
+let adjustSub =
+parseFloat(adjustSubInput.value.replace(/,/g,"")) || 0
 let corpPrepaid =
 parseFloat(corpPrepaidInput.value.replace(/,/g,"")) || 0
 let vatPrepaid =
@@ -130,7 +140,7 @@ let deemedRate =
 parseFloat(document.getElementById("deemedRate").value)
 let twoTenths =
 document.getElementById("twoTenths").checked
-let taxableIncome = Math.max(profit - lossCarry,0)
+let taxableIncome = Math.max(profit - lossCarry + adjustAdd - adjustSub, 0)
 let corporateTax = 0
 if(taxableIncome <= 8000000){
 corporateTax = taxableIncome * 0.15
