@@ -29,16 +29,10 @@ margin-top:20px;
 </div>
 売上（円）<br>
 <input type="text" id="sales"><br><br>
-利益率  
-<span id="profitRateLabel">20%</span>  
-（利益 <span id="profitAmount">0円</span>）<br>
-<input type="range" min="0" max="100" value="20" id="profitRate" class="slider">
-<br><br>
-経費率  
-<span id="expenseRateLabel">80%</span>  
-（経費 <span id="expenseAmount">0円</span>）<br>
-<input type="range" min="0" max="100" value="80" id="expenseRate" class="slider">
-<br><br>
+経費（円）<br>
+<input type="text" id="expenseInput"><br><br>
+利益率　<span id="profitRateLabel">—</span>　／　経費率　<span id="expenseRateLabel">—</span><br>
+利益　<span id="profitAmount">—</span><br><br>
 繰越欠損金<br>
 <input type="text" id="lossCarry"><br><br>
 法人税等 中間納付<br>
@@ -67,20 +61,11 @@ margin-top:20px;
 <div id="result"></div>
 </div>
 <script>
-const profitSlider = document.getElementById("profitRate")
-const expenseSlider = document.getElementById("expenseRate")
 const salesInput = document.getElementById("sales")
+const expenseInputEl = document.getElementById("expenseInput")
 const lossInput = document.getElementById("lossCarry")
 const corpPrepaidInput = document.getElementById("corpPrepaid")
 const vatPrepaidInput = document.getElementById("vatPrepaid")
-profitSlider.addEventListener("input",()=>{
-expenseSlider.value = 100 - profitSlider.value
-calculate()
-})
-expenseSlider.addEventListener("input",()=>{
-profitSlider.value = 100 - expenseSlider.value
-calculate()
-})
 function formatNumberInput(input){
 let value = input.value.replace(/,/g,"")
 if(value === "") return
@@ -88,7 +73,7 @@ if(!isNaN(value)){
 input.value = Number(value).toLocaleString()
 }
 }
-[salesInput,lossInput,corpPrepaidInput,vatPrepaidInput].forEach(input=>{
+[salesInput,expenseInputEl,lossInput,corpPrepaidInput,vatPrepaidInput].forEach(input=>{
 input.addEventListener("input",()=>{
 formatNumberInput(input)
 calculate()
@@ -100,22 +85,23 @@ el.addEventListener("input",calculate)
 function calculate(){
 let sales =
 parseFloat(salesInput.value.replace(/,/g,"")) || 0
+let expenses =
+parseFloat(expenseInputEl.value.replace(/,/g,"")) || 0
 let lossCarry =
 parseFloat(lossInput.value.replace(/,/g,"")) || 0
 let corpPrepaid =
 parseFloat(corpPrepaidInput.value.replace(/,/g,"")) || 0
 let vatPrepaid =
 parseFloat(vatPrepaidInput.value.replace(/,/g,"")) || 0
-let profitRate = parseFloat(profitSlider.value)
-let expenseRate = parseFloat(expenseSlider.value)
-let profit = sales * profitRate / 100
-let expenses = sales * expenseRate / 100
-document.getElementById("profitRateLabel").innerText = profitRate + "%"
-document.getElementById("expenseRateLabel").innerText = expenseRate + "%"
+let profit = sales - expenses
+let expenseRate = sales > 0 ? (expenses / sales * 100) : 0
+let profitRate = sales > 0 ? (profit / sales * 100) : 0
+document.getElementById("profitRateLabel").innerText =
+sales > 0 ? Math.round(profitRate) + "%" : "—"
+document.getElementById("expenseRateLabel").innerText =
+sales > 0 ? Math.round(expenseRate) + "%" : "—"
 document.getElementById("profitAmount").innerText =
-Math.round(profit).toLocaleString()+"円"
-document.getElementById("expenseAmount").innerText =
-Math.round(expenses).toLocaleString()+"円"
+sales > 0 ? Math.round(profit).toLocaleString() + "円" : "—"
 let simpleTax =
 document.getElementById("simpleTax").value
 let deemedRate =
