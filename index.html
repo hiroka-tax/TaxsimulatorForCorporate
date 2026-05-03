@@ -187,8 +187,8 @@ ${yen(vatPrepaid)}<br>
 合計納付額  
 <b>${yen(finalPayment)}</b>
 <hr>
-翌期の法人税等 中間納付額（見込み）  
-<b>${yen(totalCorporateTax / 2)}</b>
+翌期の法人税等 中間納付額（見込み）
+<b>${corporateTax > 200000 ? yen(totalCorporateTax / 2) : "中間納付不要（前期法人税額20万円以下）"}</b>
 `
 }
 </script>
