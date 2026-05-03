@@ -18,6 +18,13 @@ background:#f5f5f5;
 padding:15px;
 margin-top:20px;
 }
+.alert{
+background:#fff3cd;
+border-left:4px solid #f0ad4e;
+padding:8px 12px;
+margin:8px 0;
+font-size:0.95em;
+}
 </style>
 </head>
 <body>
@@ -45,6 +52,7 @@ margin-top:20px;
 <option value="no">いいえ</option>
 </select>
 <br><br>
+<div id="deemedRateSection">
 みなし仕入率
 <select id="deemedRate">
 <option value="0.9">第一種（卸売業）90%</option>
@@ -54,6 +62,11 @@ margin-top:20px;
 <option value="0.5" selected>第五種（サービス業等）50%</option>
 </select>
 <br><br>
+</div>
+<div id="taxableExpenseSection" style="display:none">
+課税仕入れ額（消費税がかかる経費）（円）<br>
+<input type="text" id="taxableExpense"><br><br>
+</div>
 2割特例（2026年9月まで）
 <input type="checkbox" id="twoTenths">
 <div class="result">
@@ -66,6 +79,15 @@ const expenseInputEl = document.getElementById("expenseInput")
 const lossInput = document.getElementById("lossCarry")
 const corpPrepaidInput = document.getElementById("corpPrepaid")
 const vatPrepaidInput = document.getElementById("vatPrepaid")
+const taxableExpenseInput = document.getElementById("taxableExpense")
+function updateVatInputVisibility(){
+const isSimple = document.getElementById("simpleTax").value === "yes"
+const isTwoTenths = document.getElementById("twoTenths").checked
+document.getElementById("deemedRateSection").style.display = (isSimple && !isTwoTenths) ? "" : "none"
+document.getElementById("taxableExpenseSection").style.display = (!isSimple && !isTwoTenths) ? "" : "none"
+}
+document.getElementById("simpleTax").addEventListener("change",()=>{ updateVatInputVisibility(); calculate() })
+document.getElementById("twoTenths").addEventListener("change",()=>{ updateVatInputVisibility(); calculate() })
 function formatNumberInput(input){
 let value = input.value.replace(/,/g,"")
 if(value === "") return
@@ -73,7 +95,7 @@ if(!isNaN(value)){
 input.value = Number(value).toLocaleString()
 }
 }
-[salesInput,expenseInputEl,lossInput,corpPrepaidInput,vatPrepaidInput].forEach(input=>{
+[salesInput,expenseInputEl,lossInput,corpPrepaidInput,vatPrepaidInput,taxableExpenseInput].forEach(input=>{
 input.addEventListener("input",()=>{
 formatNumberInput(input)
 calculate()
@@ -136,22 +158,26 @@ let vat = 0
 let vatMessage = ""
 if(twoTenths){
 vat = (sales / 1.1) * 0.1 * 0.2
-}else{
-if(simpleTax==="yes"){
+}else if(simpleTax==="yes"){
 vat = (sales/1.1)*0.1*(1-deemedRate)
 }else{
-vatMessage = "計算対象外（税理士にお問い合わせください）"
+let taxableExp = parseFloat(taxableExpenseInput.value.replace(/,/g,"")) || 0
+vat = (sales / 1.1 * 0.1) - (taxableExp / 1.1 * 0.1)
+if(vat < 0) vatMessage = "還付見込み（" + Math.round(-vat).toLocaleString() + "円）"
 }
-}
-let totalTax = totalCorporateTax + vat
+let localVat = vat * 22/78
+let totalTax = totalCorporateTax + vat + localVat
 let remainingCorpTax =
 totalCorporateTax - corpPrepaid
 let remainingVat =
-vat - vatPrepaid
+vat + localVat - vatPrepaid
 let finalPayment =
 remainingCorpTax + remainingVat
 function yen(x){
 return Math.round(x).toLocaleString()+"円"
+}
+function vatDisplay(x){
+return x < 0 ? "還付見込み（"+Math.round(-x).toLocaleString()+"円）" : yen(x)
 }
 document.getElementById("result").innerHTML =
 `
@@ -166,29 +192,35 @@ document.getElementById("result").innerHTML =
 住民税（均等割）　${yen(inhabitantFlat)}<br>
 防衛特別法人税　${yen(defenseTax)}<br>
 <hr>
-法人税等合計  
+法人税等合計
 <b>${yen(totalCorporateTax)}</b><br>
-消費税  
-<b>${vatMessage ? vatMessage : yen(vat)}</b><br>
+消費税（国税）
+<b>${vatDisplay(vat)}</b><br>
+地方消費税
+<b>${vatDisplay(localVat)}</b><br>
 <hr>
-税金合計  
+税金合計
 <b>${yen(totalTax)}</b><br>
 <hr>
-法人税等 中間納付  
+法人税等 中間納付
 ${yen(corpPrepaid)}<br>
-消費税 中間納付  
+消費税 中間納付
 ${yen(vatPrepaid)}<br>
 <hr>
-法人税等 期末納付  
+法人税等 期末納付
 <b>${yen(remainingCorpTax)}</b><br>
-消費税 期末納付  
-<b>${vatMessage ? vatMessage : yen(remainingVat)}</b><br>
+消費税 期末納付
+<b>${vatDisplay(remainingVat)}</b><br>
 <hr>
-合計納付額  
+合計納付額
 <b>${yen(finalPayment)}</b>
 <hr>
+${corporateTax > 200000 ? '<div class="alert">法人税額が20万円を超えるため、翌期は中間申告・納付が必要です。</div>' : ''}
+${vat > 480000 ? '<div class="alert">消費税額が48万円を超えるため、翌期は中間申告・納付が必要です。</div>' : ''}
 翌期の法人税等 中間納付額（見込み）
-<b>${corporateTax > 200000 ? yen(totalCorporateTax / 2) : "中間納付不要（前期法人税額20万円以下）"}</b>
+<b>${corporateTax > 200000 ? yen(totalCorporateTax / 2) : "中間納付不要（前期法人税額20万円以下）"}</b><br>
+翌期の消費税 中間納付額（見込み）
+<b>${vat < 0 ? "中間納付不要（還付見込みのため）" : vat <= 480000 ? "中間納付不要（前期消費税額48万円以下）" : vat <= 4000000 ? yen(vat / 2 * (1 + 22/78))+"（年1回）" : vat <= 48000000 ? yen(vat / 4 * (1 + 22/78))+"（年3回・1回あたり）" : yen(vat / 12 * (1 + 22/78))+"（年11回・1回あたり）"}</b>
 `
 }
 </script>
