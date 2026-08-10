@@ -34,6 +34,23 @@ font-size:0.95em;
 <small style="color:#666;">※ 簡易課税方式による消費税は法人の損金（経費）に算入されます。また、前期に確定した事業税は当期の損金となります。<br>
 本ツールは概算計算を目的としており、正確な税額については税理士にご相談ください。</small>
 </div>
+事業年度の月数
+<select id="months">
+<option value="1">1か月</option>
+<option value="2">2か月</option>
+<option value="3">3か月</option>
+<option value="4">4か月</option>
+<option value="5">5か月</option>
+<option value="6">6か月</option>
+<option value="7">7か月</option>
+<option value="8">8か月</option>
+<option value="9">9か月</option>
+<option value="10">10か月</option>
+<option value="11">11か月</option>
+<option value="12" selected>12か月</option>
+</select>
+<small style="color:#666;">　※短期事業年度は800万・500万・均等割等を月数按分</small>
+<br><br>
 売上（円）<br>
 <input type="text" id="sales"><br><br>
 経費（円）<br>
@@ -140,21 +157,37 @@ let deemedRate =
 parseFloat(document.getElementById("deemedRate").value)
 let twoTenths =
 document.getElementById("twoTenths").checked
+let months = parseInt(document.getElementById("months").value) || 12
 let taxableIncome = Math.max(profit - lossCarry + adjustAdd - adjustSub, 0)
 let corporateTax = 0
-if(taxableIncome <= 8000000){
+let lowRateLimit = Math.floor(8000000 * months / 12)
+if(taxableIncome <= lowRateLimit){
 corporateTax = taxableIncome * 0.15
 }else{
 corporateTax =
-8000000 * 0.15 +
-(taxableIncome - 8000000) * 0.232
+lowRateLimit * 0.15 +
+(taxableIncome - lowRateLimit) * 0.232
 }
 let localCorporateTax = corporateTax * 0.103
-let enterpriseTax = taxableIncome * 0.035
+let entBracket1 = Math.floor(4000000 * months / 12)
+let entBracket2 = Math.floor(8000000 * months / 12)
+let enterpriseTax = 0
+if(taxableIncome <= entBracket1){
+enterpriseTax = taxableIncome * 0.035
+}else if(taxableIncome <= entBracket2){
+enterpriseTax =
+entBracket1 * 0.035 +
+(taxableIncome - entBracket1) * 0.053
+}else{
+enterpriseTax =
+entBracket1 * 0.035 +
+(entBracket2 - entBracket1) * 0.053 +
+(taxableIncome - entBracket2) * 0.07
+}
 let specialEnterpriseTax = enterpriseTax * 0.37
-let inhabitantFlat = 70000
+let inhabitantFlat = Math.floor(70000 * months / 12 / 100) * 100
 let inhabitantRate = corporateTax * 0.07
-let defenseTaxBase = Math.max(corporateTax - 5000000, 0)
+let defenseTaxBase = Math.max(corporateTax - Math.floor(5000000 * months / 12), 0)
 let defenseTax = defenseTaxBase * 0.04
 let totalCorporateTax =
 corporateTax +
@@ -176,6 +209,8 @@ vat = (sales / 1.1 * 0.1) - (taxableExp / 1.1 * 0.1)
 if(vat < 0) vatMessage = "還付見込み（" + Math.round(-vat).toLocaleString() + "円）"
 }
 let localVat = vat * 22/78
+let vatAnnual = vat * 12 / months
+let interimCorpRequired = corporateTax * 6 / months > 100000
 let totalTax = totalCorporateTax + vat + localVat
 let remainingCorpTax =
 totalCorporateTax - corpPrepaid
@@ -225,12 +260,12 @@ ${yen(vatPrepaid)}<br>
 合計納付額
 <b>${yen(finalPayment)}</b>
 <hr>
-${corporateTax > 200000 ? '<div class="alert">法人税額が20万円を超えるため、翌期は中間申告・納付が必要です。</div>' : ''}
-${vat > 480000 ? '<div class="alert">消費税額が48万円を超えるため、翌期は中間申告・納付が必要です。</div>' : ''}
+${interimCorpRequired ? '<div class="alert">法人税額（年換算）が20万円を超えるため、翌期は中間申告・納付が必要です。</div>' : ''}
+${vatAnnual > 480000 ? '<div class="alert">消費税額（年換算）が48万円を超えるため、翌期は中間申告・納付が必要です。</div>' : ''}
 翌期の法人税等 中間納付額（見込み）
-<b>${corporateTax > 200000 ? yen(totalCorporateTax / 2) : "中間納付不要（前期法人税額20万円以下）"}</b><br>
+<b>${interimCorpRequired ? yen(totalCorporateTax * 6 / months) : "中間納付不要（前期法人税額 年換算20万円以下）"}</b><br>
 翌期の消費税 中間納付額（見込み）
-<b>${vat < 0 ? "中間納付不要（還付見込みのため）" : vat <= 480000 ? "中間納付不要（前期消費税額48万円以下）" : vat <= 4000000 ? yen(vat / 2 * (1 + 22/78))+"（年1回）" : vat <= 48000000 ? yen(vat / 4 * (1 + 22/78))+"（年3回・1回あたり）" : yen(vat / 12 * (1 + 22/78))+"（年11回・1回あたり）"}</b>
+<b>${vat < 0 ? "中間納付不要（還付見込みのため）" : vatAnnual <= 480000 ? "中間納付不要（前期消費税額 年換算48万円以下）" : vatAnnual <= 4000000 ? yen(vatAnnual / 2 * (1 + 22/78))+"（年1回）" : vatAnnual <= 48000000 ? yen(vatAnnual / 4 * (1 + 22/78))+"（年3回・1回あたり）" : yen(vatAnnual / 12 * (1 + 22/78))+"（年11回・1回あたり）"}</b>
 `
 }
 </script>
